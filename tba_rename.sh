@@ -24,17 +24,13 @@ find_shows() {
     fi
 }
 
-# Print the found results or not
-display_output() {
+# Look for episodes with TBA
+search_episodes() {
+    episodesToRename=()
     titles=$(jq -r '.title' <<< "${monitoredSeries[@]}")
 
     echo -e "${BLUE}Searching for TBA episodes in ${#monitoredSeries[@]} shows:"
     echo -e "${YELLOW}${titles}"
-}
-
-# Look for episodes with TBA
-search_episodes() {
-    episodesToRename=()
 
     for serie in "${monitoredSeries[@]}"; do
         seriesId="$(jq -r '.id' <<< "${serie}")"
@@ -107,7 +103,6 @@ rename_episodes() {
 
 # Run the functions
 find_shows
-display_output
 search_episodes
 refresh_series
 wait_working
