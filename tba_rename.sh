@@ -8,7 +8,7 @@ API_URL="http://tower.lan:8989/api/v3"
 # -----------------------------------------
 
 # API param
-HEADER="X-API-KEY: ${API_KEY}"
+HEADER="x-api-key: ${API_KEY}"
 # CLI font colors
 BLUE='\033[0;34m'
 YELLOW='\033[0;33m'
