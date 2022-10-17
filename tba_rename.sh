@@ -71,7 +71,7 @@ refresh_series() {
     seriesTitle=$(jq -r '.[0].seriesTitle' <<<"${serie}")
 
     printf "${YELLOW}${seriesTitle}"
-    curl --insecure -sSH "${HEADER}" -X POST "${API_URL}/command" -d "{\"name\":\"RefreshSeries\",\"seriesId\":${seriesId}}" -o /dev/null
+    curl --insecure -sSH "${HEADER}" -H 'content-type: application/json' -X POST "${API_URL}/command" -d "{\"name\":\"RefreshSeries\",\"seriesId\":${seriesId}}" -o /dev/null
     printf " ✓\\n"
   done
 }
@@ -98,7 +98,7 @@ rename_episodes() {
     episodesList=$(jq -r 'map(.id) | join(",")' <<<"${serie}")
 
     printf "${YELLOW}${seriesTitle}"
-    curl --insecure -sSH "${HEADER}" -X POST "${API_URL}/command" -d "{\"name\":\"RenameFiles\",\"seriesId\":${seriesId},\"files\":[${episodesList}]}" -o /dev/null
+    curl --insecure -sSH "${HEADER}" -H 'content-type: application/json' -X POST "${API_URL}/command" -d "{\"name\":\"RenameFiles\",\"seriesId\":${seriesId},\"files\":[${episodesList}]}" -o /dev/null
     printf " ✓\\n"
   done
 }
