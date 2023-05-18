@@ -13,7 +13,7 @@ By doing this you end having episodes with **TBA** imported to the library, whic
 
 This script is to keep trying to rename these episodes automatic, based on Sonarr's API.
 
-Just put it on a cron to run every 4h or so `0 */4 * * * ./tba_rename.sh`
+Assuming you know how to do it, just add a cron to run every day or so `0 0 * * * /your-path/tba_rename.sh`
 
 > **Warning**
 > It does not help run it much often, Sonarr API does not refresh so often
