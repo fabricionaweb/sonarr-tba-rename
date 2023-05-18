@@ -22,7 +22,7 @@ Assuming you know how to do it, just add a cron to run every day or so `0 0 * * 
 
 1. It runs over Sonarr library looking for episodes with "TBA" (to be announced) in the **filename** (for monitored series only).
 1. When found one, it will ask Sonarr to try to refresh the serie metadata, trying to get the missing episode name.
-   - Refresh Series happens naturally in 12h interval, we are just calling to refresh early.
+   - Refresh Series happens naturally in 12h interval
 1. Waits 30 seconds to Sonarr work on the requests.
 1. Asks Sonarr to try to rename the episodes:
    - If the metadata was updated before, it will rename and log in the episode history.
