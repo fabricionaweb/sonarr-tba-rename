@@ -12,10 +12,12 @@ HEADER="x-api-key: ${API_KEY}"
 # CLI font colors
 BLUE='\033[0;34m'
 YELLOW='\033[0;33m'
+RESET='\033[0m'
 
 # Find list of shows monitored
 find_shows() {
-  readarray -t monitoredSeries < <(curl --insecure -sSH "${HEADER}" "${API_URL}/series" | jq -c '.[] | select(.monitored == true) | {id,title}')
+  readarray -t monitoredSeries < <(curl --insecure -sSH "${HEADER}" "${API_URL}/series" |
+    jq -c '.[] | select(.monitored == true) | {id,title}')
 
   if [[ ${#monitoredSeries[@]} -eq 0 ]]; then
     echo -e "${BLUE}No shows found with 'continuing' status."
@@ -39,7 +41,9 @@ search_episodes() {
     #   get only the values that passes on the regex: TBA|Episode [0-9]{1,}
     #   add the "seriesTitle" property to results (endpoint response doesnt have it)
     #   select necessary fields
-    readarray -t episodesTBA < <(curl --insecure -sSH "${HEADER}" "${API_URL}/episodeFile?seriesId=${seriesId}" | jq --arg seriesTitle "${seriesTitle}" -c '.[] | select(.relativePath | test("TBA|Episode [0-9]{1,}")) | . += { seriesTitle: $seriesTitle } | {id,seriesId,seriesTitle,relativePath}')
+    readarray -t episodesTBA < <(curl --insecure -sSH "${HEADER}" "${API_URL}/episodeFile?seriesId=${seriesId}" |
+      jq --arg seriesTitle "${seriesTitle}" \
+        -c '.[] | select(.relativePath | test("TBA|Episode [0-9]{1,}")) | . += { seriesTitle: $seriesTitle } | {id,seriesId,seriesTitle,relativePath}')
 
     # if no TBA episodes found, go to the next serie
     [[ ${#episodesTBA[@]} -eq 0 ]] && continue
@@ -71,7 +75,11 @@ refresh_series() {
     seriesTitle=$(jq -r '.[0].seriesTitle' <<<"${serie}")
 
     printf "${YELLOW}${seriesTitle}"
-    curl --insecure -sSH "${HEADER}" -H 'content-type: application/json' -X POST "${API_URL}/command" -d "{\"name\":\"RefreshSeries\",\"seriesId\":${seriesId}}" -o /dev/null
+    curl --insecure -sSH "${HEADER}" \
+      -H 'content-type: application/json' \
+      -X POST "${API_URL}/command" \
+      -d "{\"name\":\"RefreshSeries\",\"seriesId\":${seriesId}}" \
+      -o /dev/null
     printf " ✓\\n"
   done
 }
@@ -87,7 +95,7 @@ wait_working() {
   echo ""
 }
 
-# Call Sonnar rename files command
+# Call Sonarr rename files command
 rename_episodes() {
   echo ""
   echo -e "${BLUE}Asking Sonarr to rename episodes for:"
@@ -95,12 +103,19 @@ rename_episodes() {
   for serie in "${seriesToRefresh[@]}"; do
     seriesId=$(jq -r '.[0].seriesId' <<<"${serie}")
     seriesTitle=$(jq -r '.[0].seriesTitle' <<<"${serie}")
-    episodesList=$(jq -r 'map(.id) | join(",")' <<<"${serie}")
+    episodesList=$(jq -r 'map(.id|tostring) | join(",")' <<<"${serie}")
 
     printf "${YELLOW}${seriesTitle}"
-    curl --insecure -sSH "${HEADER}" -H 'content-type: application/json' -X POST "${API_URL}/command" -d "{\"name\":\"RenameFiles\",\"seriesId\":${seriesId},\"files\":[${episodesList}]}" -o /dev/null
+    curl --insecure -sSH "${HEADER}" \
+      -H 'content-type: application/json' \
+      -X POST "${API_URL}/command" \
+      -d "{\"name\":\"RenameFiles\",\"seriesId\":${seriesId},\"files\":[${episodesList}]}" \
+      -o /dev/null
     printf " ✓\\n"
   done
+
+  # Revert the coloring
+  echo -e "${RESET}"
 }
 
 # Run the functions
