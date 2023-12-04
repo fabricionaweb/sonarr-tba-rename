@@ -16,11 +16,11 @@ RESET='\033[0m'
 
 # Find list of shows monitored
 find_shows() {
-  readarray -t monitoredSeries < <(curl --insecure -sSH "${HEADER}" "${API_URL}/series" |
+  readarray -t monitoredSeries < <(curl -sSH "${HEADER}" "${API_URL}/series" |
     jq -c '.[] | select(.monitored == true) | {id,title}')
 
   if [[ ${#monitoredSeries[@]} -eq 0 ]]; then
-    echo -e "${BLUE}No shows found with 'continuing' status."
+    echo -e "${BLUE}No monitored shows available. ${RESET}"
     exit 0
   fi
 }
@@ -30,8 +30,8 @@ search_episodes() {
   episodesToRename=()
   titles=$(jq -r '.title' <<<"${monitoredSeries[@]}")
 
-  echo -e "${BLUE}Searching for TBA episodes in ${#monitoredSeries[@]} shows:"
-  echo -e "${YELLOW}${titles}"
+  echo -e "${BLUE}Searching for TBA episodes in ${#monitoredSeries[@]} shows: ${RESET}"
+  echo -e "${YELLOW}${titles} ${RESET}"
 
   for serie in "${monitoredSeries[@]}"; do
     seriesId="$(jq -r '.id' <<<"${serie}")"
@@ -41,7 +41,7 @@ search_episodes() {
     #   get only the values that passes on the regex: TBA|Episode [0-9]{1,}
     #   add the "seriesTitle" property to results (endpoint response doesnt have it)
     #   select necessary fields
-    readarray -t episodesTBA < <(curl --insecure -sSH "${HEADER}" "${API_URL}/episodeFile?seriesId=${seriesId}" |
+    readarray -t episodesTBA < <(curl -sSH "${HEADER}" "${API_URL}/episodeFile?seriesId=${seriesId}" |
       jq --arg seriesTitle "${seriesTitle}" \
         -c '.[] | select(.relativePath | test("TBA|Episode [0-9]{1,}")) | . += { seriesTitle: $seriesTitle } | {id,seriesId,seriesTitle,relativePath}')
 
@@ -52,13 +52,13 @@ search_episodes() {
     episodesPath="$(jq -r '.relativePath' <<<"${episodesTBA[@]}")"
 
     echo ""
-    echo -e "${BLUE}Found TBA episodes in ${seriesTitle}:"
-    echo -e "${YELLOW}${episodesPath}"
+    echo -e "${BLUE}Found TBA episodes in ${seriesTitle}: ${RESET}"
+    echo -e "${YELLOW}${episodesPath} ${RESET}"
   done
 
   if [[ ${#episodesToRename[@]} -eq 0 ]]; then
     echo ""
-    echo -e "${BLUE}No TBA episodes found."
+    echo -e "${BLUE}No TBA episodes found. ${RESET}"
     exit 0
   fi
 }
@@ -68,37 +68,35 @@ refresh_series() {
   readarray -t seriesToRefresh < <(jq -sc 'group_by(.seriesId) | .[]' <<<"${episodesToRename[@]}")
 
   echo ""
-  echo -e "${BLUE}Asking Sonarr to refresh metadata for:"
+  echo -e "${BLUE}Asking Sonarr to refresh metadata for: ${RESET}"
 
   for serie in "${seriesToRefresh[@]}"; do
     seriesId=$(jq -r '.[0].seriesId' <<<"${serie}")
     seriesTitle=$(jq -r '.[0].seriesTitle' <<<"${serie}")
 
     printf "${YELLOW}${seriesTitle}"
-    curl --insecure -sSH "${HEADER}" \
-      -H 'content-type: application/json' \
-      -X POST "${API_URL}/command" \
-      -d "{\"name\":\"RefreshSeries\",\"seriesId\":${seriesId}}" \
+    curl -sSH "${HEADER}" -X POST "${API_URL}/command" \
+      -H 'content-type: application/json' -d "{\"name\":\"RefreshSeries\",\"seriesId\":${seriesId}}" \
       -o /dev/null
-    printf " ✓\\n"
+    printf " ✓\\n ${RESET}"
   done
 }
 
 # Wait 30 seconds to Sonarr work, it should be enough
 wait_working() {
   echo ""
-  echo -e "${BLUE}Waiting 30 seconds to Sonarr work on it${YELLOW}"
+  echo -e "${BLUE}Waiting 30 seconds to Sonarr work on it"
   for i in {1..30}; do
     sleep 1
     printf "."
   done
-  echo ""
+  echo -e "${RESET}"
 }
 
 # Call Sonarr rename files command
 rename_episodes() {
   echo ""
-  echo -e "${BLUE}Asking Sonarr to rename episodes for:"
+  echo -e "${BLUE}Asking Sonarr to rename episodes for: ${RESET}"
 
   for serie in "${seriesToRefresh[@]}"; do
     seriesId=$(jq -r '.[0].seriesId' <<<"${serie}")
@@ -106,16 +104,11 @@ rename_episodes() {
     episodesList=$(jq -r 'map(.id|tostring) | join(",")' <<<"${serie}")
 
     printf "${YELLOW}${seriesTitle}"
-    curl --insecure -sSH "${HEADER}" \
-      -H 'content-type: application/json' \
-      -X POST "${API_URL}/command" \
-      -d "{\"name\":\"RenameFiles\",\"seriesId\":${seriesId},\"files\":[${episodesList}]}" \
+    curl -sSH "${HEADER}" -X POST "${API_URL}/command" \
+      -H 'content-type: application/json' -d "{\"name\":\"RenameFiles\",\"seriesId\":${seriesId},\"files\":[${episodesList}]}" \
       -o /dev/null
-    printf " ✓\\n"
+    printf " ✓\\n ${RESET}"
   done
-
-  # Revert the coloring
-  echo -e "${RESET}"
 }
 
 # Run the functions
