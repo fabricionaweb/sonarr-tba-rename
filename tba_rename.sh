@@ -9,6 +9,8 @@ API_URL="http://tower.lan:8989/api/v3"
 
 # API param
 HEADER="x-api-key: ${API_KEY}"
+# Filter episodes by released date (in days), accepts env var, eg: `FILTER_DAYS=30 ./tba-rename.sh`
+FILTER_DAYS="${FILTER_DAYS:-14}"
 
 # Find list of shows monitored
 find_shows() {
@@ -25,21 +27,32 @@ find_shows() {
 search_episodes() {
   episodesToRename=()
   titles=$(jq -r '.title' <<<"${monitoredSeries[@]}")
+  limitDate=$(date -d "-${FILTER_DAYS} days" +%s)
 
-  echo -e "=> Searching for TBA episodes in ${#monitoredSeries[@]} shows:"
+  echo -e "=> Searching for TBA episodes within ${FILTER_DAYS} days in ${#monitoredSeries[@]} shows:"
   echo -e "${titles}"
 
   for serie in "${monitoredSeries[@]}"; do
     seriesId="$(jq -r '.id' <<<"${serie}")"
     seriesTitle="$(jq -r '.title' <<<"${serie}")"
 
+    # airDateUtc value comes from a separated endpoint
+    # build a list of ids to filter on the next query
+    episodesFiltered="$(curl -sSH "${HEADER}" "${API_URL}/episode?seriesId=${seriesId}" |
+      jq --argjson limitDate "${limitDate}" \
+        -c '[.[] | select((.hasFile == true) and (.airDateUtc? | fromdateiso8601) > $limitDate) | .episodeFileId]')"
+
+    # no episode on date range, go to the next serie
+    [[ "${episodesFiltered}" == "[]" ]] && continue
+
     # jq explained
-    #   get only the values that passes on the regex: TBA|Episode [0-9]{1,}
+    #   filter values that belongs to the date range
+    #   filter values that passes on the regex: TBA|Episode [0-9]{1,}
     #   add the "seriesTitle" property to results (endpoint response doesnt have it)
-    #   select necessary fields
+    #   return necessary fields
     readarray -t episodesTBA < <(curl -sSH "${HEADER}" "${API_URL}/episodeFile?seriesId=${seriesId}" |
-      jq --arg seriesTitle "${seriesTitle}" \
-        -c '.[] | select(.relativePath | test("TBA|Episode [0-9]{1,}")) | . += { seriesTitle: $seriesTitle } | {id,seriesId,seriesTitle,relativePath}')
+      jq --arg seriesTitle "${seriesTitle}" --argjson episodesFiltered "${episodesFiltered}" \
+        -c '.[] | select(($episodesFiltered[] == .id) and (.relativePath | test("TBA|Episode [0-9]{1,}"))) | . += { seriesTitle: $seriesTitle } | {id,seriesId,seriesTitle,relativePath}')
 
     # if no TBA episodes found, go to the next serie
     [[ ${#episodesTBA[@]} -eq 0 ]] && continue
