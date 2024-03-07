@@ -9,10 +9,6 @@ API_URL="http://tower.lan:8989/api/v3"
 
 # API param
 HEADER="x-api-key: ${API_KEY}"
-# CLI font colors
-BLUE='\033[0;34m'
-YELLOW='\033[0;33m'
-RESET='\033[0m'
 
 # Find list of shows monitored
 find_shows() {
@@ -20,7 +16,7 @@ find_shows() {
     jq -c '.[] | select(.monitored == true) | {id,title}')
 
   if [[ ${#monitoredSeries[@]} -eq 0 ]]; then
-    echo -e "${BLUE}No monitored shows available. ${RESET}"
+    echo -e "=> No monitored shows available."
     exit 0
   fi
 }
@@ -30,8 +26,8 @@ search_episodes() {
   episodesToRename=()
   titles=$(jq -r '.title' <<<"${monitoredSeries[@]}")
 
-  echo -e "${BLUE}Searching for TBA episodes in ${#monitoredSeries[@]} shows: ${RESET}"
-  echo -e "${YELLOW}${titles} ${RESET}"
+  echo -e "=> Searching for TBA episodes in ${#monitoredSeries[@]} shows:"
+  echo -e "${titles}"
 
   for serie in "${monitoredSeries[@]}"; do
     seriesId="$(jq -r '.id' <<<"${serie}")"
@@ -51,14 +47,12 @@ search_episodes() {
     episodesToRename+=("${episodesTBA[@]}")
     episodesPath="$(jq -r '.relativePath' <<<"${episodesTBA[@]}")"
 
-    echo ""
-    echo -e "${BLUE}Found TBA episodes in ${seriesTitle}: ${RESET}"
-    echo -e "${YELLOW}${episodesPath} ${RESET}"
+    echo -e "\\n=> Found TBA episodes in ${seriesTitle}:"
+    echo -e "${episodesPath}"
   done
 
   if [[ ${#episodesToRename[@]} -eq 0 ]]; then
-    echo ""
-    echo -e "${BLUE}No TBA episodes found. ${RESET}"
+    echo -e "\\n=> No TBA episodes found."
     exit 0
   fi
 }
@@ -67,47 +61,44 @@ search_episodes() {
 refresh_series() {
   readarray -t seriesToRefresh < <(jq -sc 'group_by(.seriesId) | .[]' <<<"${episodesToRename[@]}")
 
-  echo ""
-  echo -e "${BLUE}Asking Sonarr to refresh metadata for: ${RESET}"
+  echo -e "\\n=> Asking Sonarr to refresh metadata for:"
 
   for serie in "${seriesToRefresh[@]}"; do
     seriesId=$(jq -r '.[0].seriesId' <<<"${serie}")
     seriesTitle=$(jq -r '.[0].seriesTitle' <<<"${serie}")
 
-    printf "${YELLOW}${seriesTitle}"
+    printf "${seriesTitle}"
     curl -sSH "${HEADER}" -X POST "${API_URL}/command" \
       -H 'content-type: application/json' -d "{\"name\":\"RefreshSeries\",\"seriesId\":${seriesId}}" \
       -o /dev/null
-    printf " ✓\\n ${RESET}"
+    printf " ✓\\n"
   done
 }
 
 # Wait 30 seconds to Sonarr work, it should be enough
 wait_working() {
-  echo ""
-  echo -e "${BLUE}Waiting 30 seconds to Sonarr work on it"
+  echo -e "\\n=> Waiting 30 seconds to Sonarr work on it:"
   for i in {1..30}; do
     sleep 1
     printf "."
   done
-  echo -e "${RESET}"
+  echo -e ""
 }
 
 # Call Sonarr rename files command
 rename_episodes() {
-  echo ""
-  echo -e "${BLUE}Asking Sonarr to rename episodes for: ${RESET}"
+  echo -e "\\n=> Asking Sonarr to rename episodes for: "
 
   for serie in "${seriesToRefresh[@]}"; do
     seriesId=$(jq -r '.[0].seriesId' <<<"${serie}")
     seriesTitle=$(jq -r '.[0].seriesTitle' <<<"${serie}")
     episodesList=$(jq -r 'map(.id|tostring) | join(",")' <<<"${serie}")
 
-    printf "${YELLOW}${seriesTitle}"
+    printf "${seriesTitle}"
     curl -sSH "${HEADER}" -X POST "${API_URL}/command" \
       -H 'content-type: application/json' -d "{\"name\":\"RenameFiles\",\"seriesId\":${seriesId},\"files\":[${episodesList}]}" \
       -o /dev/null
-    printf " ✓\\n ${RESET}"
+    printf " ✓\\n"
   done
 }
 
